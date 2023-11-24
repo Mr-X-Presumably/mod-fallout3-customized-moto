@@ -1,0 +1,869 @@
+SCN J3XMotorcycleScript
+
+; Author: VeliV - www.project-valhalla.org
+; Modder: J3X
+; Try to optimize this!
+	short ModAnimationType
+	short setup
+	short HealOnce 
+	short MoveInTFC  ; when 1 -> move actor's position by scripting
+
+	float ModAngle 
+	float oldModAngle
+	float ModSpeed ; Speed! Keep this to 0-300.... It's divided by 100
+
+	float RealSpeedMulValue ;the multiple value between script move speed and game engine
+
+	float anglespeed
+	float Timer   ;For drive over damage
+	float time
+	float KeyPressCDTime
+	float KeyCDTimeValue
+	float SpeedMeterCDTime
+
+	; For detecting collisions (realspeed drops severly)
+	float oldspeed
+	float oldx
+	float oldy
+	float oldz
+	float tempx
+	float tempy
+	float tempz
+	float AnimationTileAngle
+
+	float ModSin
+	float ModCos
+
+	float newx
+	float newy
+	float newz
+	float newspeed
+
+	ref SmokeDummyRef
+	short bSmoke
+
+	ref turret1
+	ref turret2
+	float firesound
+	
+	ref light1
+	ref light2	
+
+	float ZaxEye_X
+	float ZaxEye_Y
+	float ZaxEye_Z
+
+	float trx
+	float try
+	float trz
+
+; Mods
+	float BoostTimer
+
+	short TurretState
+		; >0 = Exists		
+		; 1 = OUT
+		; 2 = IN
+	float turretangle ; 0-90
+
+	short lightstate
+
+	float soundTimer	; Cpunts down to next looping sound
+	short LastSoundType
+	short SoundType
+		; 0 = Idle
+		; 1 = Accelerate
+		; 2 = stopping
+
+	ref tempform
+	SHORT tempint
+	
+	short ShouldDismount
+	
+	short cameralocked
+	short cameralockedKey
+
+	float angle
+	ref actor
+	ref BeRiddenActorRef
+	ref CompActorRef
+	short CompCnt ; companion count in the list
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; Dynamic Speed configuration
+float BlurAtSpeed
+
+;============================================================
+;============================================================
+; Setup part, connects to world object
+begin OnAdd
+	printc "Initialize the motorcycle..."
+	set actor to GetContainer
+	if J3XMotorcycleQuest.turrettype
+		if J3XMotorcycleQuest.turrettype == 1
+			set turret1 to actor.PlaceAtMe J3XMotorcycleTurret
+			set turret2 to actor.PlaceAtMe J3XMotorcycleTurret
+		elseif J3XMotorcycleQuest.turrettype == 2
+			set turret1 to actor.PlaceAtMe J3XMotorcycleLaser
+			set turret2 to actor.PlaceAtMe J3XMotorcycleLaser
+		elseif J3XMotorcycleQuest.turrettype == 3
+			set turret1 to actor.PlaceAtMe J3XMotorcycleFlamer
+			set turret2 to actor.PlaceAtMe J3XMotorcycleFlamer
+		elseif J3XMotorcycleQuest.turrettype == 4
+			set turret1 to actor.PlaceAtMe J3XMotorcycleMissile
+			set turret2 to actor.PlaceAtMe J3XMotorcycleMissile
+		endif
+
+		set TurretState to 1
+		if actor==player
+			set J3XMotorcycleQuest.turret1 to turret1
+			set J3XMotorcycleQuest.turret2 to turret2
+			set  J3XMotorcycleQuest.hasguns to 1
+		endif
+	endif
+	if J3XMotorcycleQuest.haslight1
+		set light1 to actor.PlaceAtMe J3XMotorcycleLight
+		set light2 to actor.PlaceAtMe J3XMotorcycleLight
+		light1.disable
+		light2.disable
+	endif
+
+	;intial mod parameter
+	set MoveInTFC to 0
+	set SpeedMeterCDTime to 0
+	set KeyPressCDTime to 0
+	set KeyCDTimeValue to 0.5
+	set cameralocked to 0
+	set RealSpeedMulValue to 3
+	set BlurAtSpeed to 0.9 * zGJ3XMotorcycleMaxSpeed
+	set LastSoundType to -1
+	set SoundType to 0
+
+		
+	;initial actor information
+	set BeRiddenActorRef to J3XMotorcycleQuest.BeRiddenActorRef 
+	set ShouldDismount to 0
+	set modspeed to 0
+	set ModAngle to actor.getangle z
+	set oldModAngle to ModAngle
+	actor.setangle x 0
+	set newx to actor.getpos x
+	set newy to actor.getpos y
+	set newz to actor.getpos z 
+
+;==========================================
+; player only initialization
+		if actor == player
+			;clear last referenced motorcycle object
+			set J3XMotorcycleQuest.LastUsedMotorcycleItemRef to 0;
+			;initial animation type
+			set J3XMotorcycleQuest.SitAnimationType to 1
+			set ModAnimationType to 0
+
+			;swords
+			;set RSwordRef to actor.PlaceAtMe WeapNVLegateSword2
+			;set  FurnitureRef to PlaceAtMe J3XMotorCycleFurniture
+;==========================================		
+;ADD a motorcycle to each ride companion
+			;get current used Motorcycle
+			set tempint to J3XMotorcycleQuest.motorcycletype - 1
+			set tempform to ListGetNthForm J3XMotorcycleList tempint
+			set CompCnt to ListGetCount J3XRideCompanionList
+			label 0		
+				if CompCnt > 0
+					set CompCnt to CompCnt - 1
+					set CompActorRef to ListGetNthForm J3XRidecompanionList CompCnt
+					printc "add motorcycle to the companion ref  %d ",CompActorRef
+
+					CompActorRef.SetAngle Z Modangle
+					CompActorRef.AddItem tempform 1 1
+					CompActorRef.EquipItem tempform 1 1					
+					Goto 0
+				endif
+				
+			;label 0
+		endif
+
+		;play sound
+		playsound J3XMotorcycleSoundStartup
+		set soundtimer to 1
+
+		;add smoke dummy
+		if zGJ3XMotorcycleHasSmoke == 1 
+			set SmokeDummyRef to actor.PlaceAtMe J3XSmokeDummy
+		endif
+
+		;inform the mainloop that setup is finished
+		if J3XMotorcycleQuest.DisplayMsgOnce==0
+			set J3XMotorcycleQuest.DisplayMsgOnce to 1
+			showmessage J3XMotorcycleRideHelp
+		endif
+		set setup to 1
+end
+
+;=========================================================================
+;=========================================================================
+; main routine
+begin GameMode
+	if setup == 0 
+		return
+	endif
+
+;============================================================
+; FIX TIMERS
+	if menumode
+	else
+		set time to getsecondspassed
+		if timer > 0
+			set timer to timer - time
+		endif
+		if boosttimer > 0
+			set boosttimer to boosttimer - time
+		endif
+		if soundtimer > 0
+			set soundtimer to soundtimer - time
+		endif
+		if KeyPressCDTime > 0
+			set KeyPressCDTime to KeyPressCDTime - time
+		endif
+		if SpeedMeterCDTime > 0
+			set SpeedMeterCDTime to SpeedMeterCDTime  - time
+		endif
+
+		if (firesound > 0 && firesound < 5) || (firesound > 10 && firesound > 5)
+			set firesound to firesound - time
+		endif
+	endif
+
+;============================================================
+; GET OUT! (unride)
+; 'E'(use key) : normal out
+; 'backspace' key: out and throw the motorcycle as a bomb
+	if (isKeyPressed zGJ3XMotorcycleKeyDismount ) || (isKeyPressed 14) || player.getdead ||  ShouldDismount	 ;;;;;;(player.GetInWorldspace Wasteland && player.GetPos Z < 10400) ||		
+		if BeRiddenActorRef.isActor
+			BeRiddenActorRef.dispel VechileSitOnActorEffect
+			BeRiddenActorRef.playidle reset
+		endif
+		actor.dispel VechileSitOnActorEffect
+		actor.playidle reset
+
+		if shoulddismount
+		else
+			actor.CIOS J3XFixAnimation
+		endif
+		
+		;delete smokeDummy
+		if zGJ3XMotorcycleHasSmoke == 1 
+			SmokeDummyRef.Disable
+			SmokeDummyRef.MarkForDelete
+		endif
+
+		;delete turrets and lights
+		if J3XMotorcycleQuest.turrettype
+			turret2.disABLE
+			turret1.disABLE
+			turret1.MarkForDelete
+			turret2.MarkForDelete
+		endif
+		if J3XMotorcycleQuest.haslight1
+			light2.disABLE
+			light1.disABLE
+			light1.MarkForDelete
+			light2.MarkForDelete
+		endif
+
+		;only player need to concern about turrets and the world object
+		if actor== Player
+
+			set J3XMotorcycleQuest.SitAnimationType to 0 ;no riding pose
+
+			rimod J3XMotorcycleImageBlur01
+			Player.Setav SpeedMult 100 
+			set J3XMotorcycleQuest.Hasguns to 0
+			;restore control keys
+			setControl 0 J3XMotorcycleQuest.Control0
+			setcontrol 1 J3XMotorcycleQuest.Control1
+			setcontrol 2 J3XMotorcycleQuest.Control2
+			setcontrol 3 J3XMotorcycleQuest.Control3
+			setcontrol 9 J3XMotorcycleQuest.Control9
+			EnablePlayerControls 1 1 1 1 1 1 1
+			EnableControl 11
+			EnableControl 10
+			EnableControl 9
+			EnableControl 12
+
+			if J3XMotorcycleQuest.haslight1 == 2
+				set J3XMotorcycleQuest.haslight1 to 1		
+			endif
+
+			;Okay, this will be PAIN......
+			; 1. Detect what kind of weapon we got.
+			; This is turrettype
+			; 2. Detect the motorcycle ID (getitemcount)
+	
+			set tempint to (player.getitemcount J3XMotorcycle01) + (player.getitemcount J3XMotorcycle02)*2 + (player.getitemcount J3XMotorcycle03)*3 + (player.getitemcount J3XMotorcycle04)*4 + (player.getitemcount J3XMotorcycle05)*5 -1
+			printtoconsole "Tempint for spawm is %.0f", tempint
+	
+			; 3. Get motorcycle world model
+			if J3XMotorcycleQuest.turrettype == 1
+				set tempform to ListGetNthForm J3XMotorcycleMinigunList tempint
+			elseif J3XMotorcycleQuest.turrettype == 2
+				set tempform to ListGetNthForm J3XMotorcyclelaserList tempint
+			elseif J3XMotorcycleQuest.turrettype == 3
+				set tempform to ListGetNthForm J3XMotorcycleFlamerList tempint
+			elseif J3XMotorcycleQuest.turrettype == 4
+				set tempform to ListGetNthForm J3XMotorcycleMissileList tempint
+			else
+				set tempform to ListGetNthForm J3XMotorcycleworldList tempint
+			endif
+	
+			;4. PlaceAtMe or Drop Bomp
+			if (isKeyPressed 14)
+				player.PlaceAtMe J3XMotorcycleLaunchDummy, 1, 150, 1  ;throw the motorcycle as a bomb				
+			else
+				set J3XMotorcycleQuest.LastUsedMotorcycleItemRef to actor.placeatme tempform 1 ; normal out, place the motorcycle object at player
+			endif
+	
+			set J3XMotorcycleQuest.isfiring to 0
+	
+			;set tempint to ListGetFormIndex J3XMotorcycleList 
+			;set tempform to ListGetNthForm J3XMotorcycleList tempint
+	
+			;set J3XMotorcycleQuest.motorcycletype to (IsInList J3XMotorcycle01list) +  (IsInList J3XMotorcycle02list)*2 + (IsInList J3XMotorcycle03list)*3 + (IsInList J3XMotorcycle04list)*4 + (IsInList J3XMotorcycle05list)*5
+			;set tempint to J3XMotorcycleQuest.motorcycletype - 1
+			;set tempform to ListGetNthForm J3XMotorcycleList tempint
+			;player.removeitem tempform 1 1
+		endif		
+		;remove motorcycle form the inventory
+		;printtoconsole "Removes item"
+		actor.removeitem J3XMotorcycleList 1 1
+		return
+	endif
+
+;===========================================================
+;NON-PLAYER CHARACTOR ONLY
+
+	if actor != player		
+		set ModAngle to player.GetAngle z				;follow player's direction
+		actor.SetAngle z ModAngle
+		set ModSin to (sin ModAngle) 
+		set ModCos to (cos ModAngle) 
+		set ModSpeed to player.Getav SpeedMult		;follow player's speed
+		set newx to (actor.GetPos x) + ModSin * modspeed * time * RealSpeedMulValue
+		set newy to (actor.GetPos y) + ModCos * modspeed * time * RealSpeedMulValue
+		set newz to (actor.GetPos z) 
+	endif
+
+;==============================================================================================================================
+; ride ANIMATION & be-ride animation synchronize
+	if actor==player && IsPC1stPerson 		;;;;may add GetVATSMode 
+		;do not play 3rd-person idle animation in 1st-person view
+	elseif (  ModAnimationType != J3XMotorcycleQuest.SitAnimationType || (actor.IsAnimPlaying SpecialIdle) ==0 || (actor.isspelltarget VechileSitOnActorEffect) ==0 )
+		set ModAnimationType to J3XMotorcycleQuest.SitAnimationType		
+		actor.CastImmediateOnSelf VechileSitOnActorEffect				
+		;be-ride animation
+	     if actor == Player && BeRiddenActorRef.isActor
+			BeRiddenActorRef.CastImmediateOnSelf VechileSitOnBackEffect	;specialized back animation to avoid the collision issue
+		endif
+	endif
+	
+
+;====================================================
+;adding knock effect when hitting something...
+		if (abs modspeed)> 50 && zGJ3XMotorcycleCollisionFunction> 0 && timer <= 0 
+			actor.cios J3XMotorcycleDamage
+			set timer to 0.2
+		endif
+
+;=============================================================================================================
+;only PLAYER need to excute the IF block below
+;==============================================================================================================
+	if actor == Player
+
+;============================================================
+; HORN IMPLEMENT
+	if J3XMotorcycleQuest.HasHorn && iskeypressed zGJ3XMotorcycleKeyHorn && (actor.isspelltarget J3XMotorcycleHornActorEffect)==0     ; 'B' pressed (48)
+		playsound J3XMotorcycleSoundHorn
+		player.cios J3XMotorcycleHornActorEffect
+	endif
+
+
+
+;============================================================
+; HEAL THE ACTOR SO HE WONT BE DAMAGED
+	if HealOnce
+		actor.Restoreav LeftMobilityCondition 100
+		actor.Restoreav RightMobilityCondition 100
+		Set HealOnce to 0
+	endif
+
+;============================================================
+; Calculate the speed
+		if modspeed <=zGJ3XMotorcycleMaxSpeed
+			if (iskeypressed zGJ3XMotorcycleKeyForward )   ; 'W' pressed (17)
+				if modspeed <zGJ3XMotorcycleMaxSpeed
+					set modspeed to modspeed + 2
+					;PlayMagiceffectVisuals J3XMotorcycleDustEffect ;TODO- add realistic looking dust effect
+					set soundtype to 1
+				endif
+			elseif ( iskeypressed zGJ3XMotorcycleKeyBackward ) ; 'S' pressed (31)
+				if modspeed > 0
+					set modspeed to modspeed - 20 
+					set soundtype to 2
+				elseif modspeed > (zGJ3XMotorcycleMaxSpeed/ (-3) )
+					set modspeed to modspeed - 1
+				endif
+			else ; no key-pressed detected
+				if modspeed>0.6
+					set modspeed to modspeed - 0.6	
+				elseif modspeed < -0.2
+					set modspeed to modspeed + 0.2
+				else
+					set modspeed to 0
+				endif
+				set soundtype to 0
+			endif
+		else
+			set modspeed to modspeed - 1.5
+		endif
+		if modspeed < 0
+			set modspeed to -modspeed
+			actor.Setav SpeedMult ModSpeed
+			set modspeed to -modspeed
+		else
+			actor.Setav SpeedMult ModSpeed
+		endif
+
+;============================================================
+; Calculate and turn the rotation, v 0.3
+		if (iskeypressed zGJ3XMotorcycleKeyLeft )	;TURN LEFT (30)
+			if anglespeed < 0	;turn in same side
+				set anglespeed to anglespeed - 0.3
+			else	;turn in opposite
+				set anglespeed to anglespeed - 2
+			endif
+		elseif (iskeypressed zGJ3XMotorcycleKeyRight )	;TURN RIGHT (32)
+			if anglespeed > 0	;turn in same side
+				set anglespeed to anglespeed + 0.3
+			else	;turn in opposite
+				set anglespeed to anglespeed + 2
+			endif				
+		else
+			if anglespeed < -0.6 ;TURN RIGHT				
+				set anglespeed to anglespeed + 1 
+			elseif anglespeed > 0.6 ;TURN LEFT				
+				set anglespeed to anglespeed - 1
+			else					
+				set anglespeed to 0
+			endif
+		endif
+		if anglespeed > 10
+			set anglespeed to 10
+		elseif anglespeed <-10
+			set anglespeed to -10
+		endif
+	
+		if anglespeed ;!= 0
+			set tempx to 1+( (abs modspeed)/100 )		
+			if tempx < 2
+				set tempx to 2
+			endif	
+			Set ModAngle to (actor.GetAngle Z) + (anglespeed*5 / tempx /tempx )
+			actor.SetAngle Z ModAngle
+		else
+			Set ModAngle to (actor.GetAngle Z)
+		endif
+
+;setup calculation constant
+		set ModSin to (sin ModAngle) 
+		set ModCos to (cos ModAngle) 
+
+
+;==============================================
+;SET MOVEMENT SCHEME
+		if (iskeypressed zGJ3XMotorcycleKeySwitchMoveScheme ) && ( KeyPressCDTime<=0 ) ; '=' pressed (13)
+			if MoveInTFC == 0 
+				set moveInTFC to 1
+				ShowMessage J3XMotorcycleMoveInTFC
+			else
+				set moveInTFC to 0
+				ShowMessage J3XMotorcycleMoveNormal
+			endif
+			set KeyPressCDTime to KeyCDTimeValue
+		endif
+
+;===================================================================================================
+;===================================================================================================
+;===================================================================================================
+; MOVES everything except light,turret, and the ridecompanion (if any)
+
+		if (abs modspeed) > 0 			
+			;CALCULATE THE NEW POSITION
+			set newx to (actor.GetPos x) + ModSin * modspeed * time * RealSpeedMulValue
+			set newy to (actor.GetPos y) + ModCos * modspeed * time * RealSpeedMulValue			
+			set newz to (actor.GetPos z) 
+			
+			if (moveInTFC == 0)
+				;move by simulating user keyinput
+				if modspeed > 0
+					tapcontrol 0
+				elseif modspeed < 0
+					tapcontrol 1
+				endif	
+				;make game engine to force update
+				actor.Damageav LeftMobilityCondition 1 
+				Set HealOnce to 1
+			else				
+				;move by scripting (can move in TFC)
+				;but collision detection is a problem (mainly clip or move into the ground)
+				actor.SetPos x newx
+				actor.SetPos y newy
+			endif
+		endif
+					
+;============================================================
+; Speed BLUR
+		if zGJ3XMotorcycleHasSpeedBlur == 1
+			if modspeed > BlurAtSpeed
+				imod J3XMotorcycleImageBlur01
+			else
+				rimod J3XMotorcycleImageBlur01
+			endif
+		endif
+
+;============================================================
+; MODS - BOOTS
+		if (iscontrolpressed 12) && boosttimer <= 0 && J3XMotorcycleQuest.hasboost 			;57->SPACEBAR
+			set modspeed to modspeed+ (0.5 * zGJ3XMotorcycleMaxSpeed )
+			placeatme J3XMotorcycleBoostExplosion
+	
+			TriggerHitShader 2
+			set boosttimer to 5
+		endif
+
+;============================================================
+; CAMERA LOCKED
+; J3X: ~9000 people have requested this.... I hope Orcan AKA alexkidd62 don't mind that I steal his idea. :D
+	    if (iskeypressed zGJ3XMotorcycleKeyCameraLock) && (KeyPressCDTime <= 0)  ; 'H' 35
+			if cameralocked==0
+				set cameralocked to 1
+				ShowMessage J3XMotorcycleCameraLock
+			else
+				set cameralocked to 0
+				ShowMessage J3XMotorcycleCameraNotLock
+			endif
+			set KeyPressCDTime to KeyCDTimeValue
+		endif
+	
+	    if cameralocked == 1 
+			tapcontrol 13
+		else
+			;set ModAngle to actor.getangle z
+	    endif
+
+;============================================================
+; PLAY SOUND
+		if soundtimer <= 0 || LastSoundType!=SoundType
+			if SoundType == 0
+				playsound J3XMotorcycleSoundIdle
+				set soundtimer to 0.63		;full length 0.642
+			elseif soundtype == 1
+				playsound J3XMotorcycleSoundRun ;OBJIndustrialMachine01LP ;
+				set soundtimer to 3.927 	;full length 3.927
+			else	;soundtype == 2
+				playsound J3XMotorcycleSoundStop
+				set soundtimer to 4.526		;full length 4.526
+			endif
+		endif
+		set LastSoundType to SoundType
+	
+;============================================================
+; Collision detection
+; Checks if real speed has dropped as hell, this section looks like hell
+	if MoveInTFC ==0
+		set tempx to oldx - player.getpos x
+		set tempy to oldy - player.getpos y
+		set newspeed to (tempx*tempx) + (tempy*tempy)
+		set newspeed to (sqrt newspeed)*time ;I think this might be wrong...should divide by time, but I'm lazy to test it
+		
+		if modspeed - newspeed*1000  > 160 ; Big number
+			playsound  FXExplosionImpactMetal ;WPNBreak ; FXExplosionImpactMetal
+			if modspeed - newspeed*1000  > 220
+				;collision strike
+				;set shoulddismount to 1
+				;player.PlaceAtMe J3XMotorcyclePushPlayerDummy, 1, 150, 1
+				;set j3xmotorcyclequest.PushAwayForce to Player.getav SpeedMult/20
+			endif
+			set modspeed to newspeed*1000
+		endif
+	endif
+
+;============================================================
+; Display Speed Meter every 2 seconds
+		
+		if j3xmotorcyclequest.hasspeedometer && SpeedMeterCDTime <=0
+			set SpeedMeterCDTime to 2
+			set tempx to modspeed/5
+			showmessage J3XMotorcycleDebugMessage tempx
+		endif
+
+;====================================================================================================== 
+; tilt Animation Determin
+	set tempx to (ModAngle - oldModAngle) / time
+	if tempx > 2	&& (abs modspeed) > 50				;TURN LEFT
+		set J3XMotorcycleQuest.SitAnimationType to 3
+	elseif tempx < -2 && (abs modspeed) > 50			;TURN RIGHT
+		set J3XMotorcycleQuest.SitAnimationType to 2
+	else ;regular
+		set J3XMotorcycleQuest.SitAnimationType to 1		
+	endif
+	set oldModAngle to ModAngle
+
+;============================================================
+;MOVE THE be-ridden actor position
+	  if BeRiddenActorRef.isActor
+     	;angle, position
+	    BeRiddenActorRef.setAngle z ModAngle
+	    set tempx to newx - 142* ModSin
+	    set tempy to newy - 142* ModCos
+     	set tempz to newz +10
+	    BeRiddenActorRef.setPos x tempx
+	    BeRiddenActorRef.setPos y tempy
+	    BeRiddenActorRef.setPos z tempz
+  	endif
+
+;=====================================================
+; MOVE THE ride companionS, control THEIR relative position
+
+	set CompCnt to ListGetCount J3XRideCompanionList
+	set trx to 0
+	set try to 0
+	label 1		
+	if trx >= 0
+		set trx to trx + 100
+		set try to try - 100
+	endif
+
+	if CompCnt > 0
+		;left plane
+		set CompCnt to CompCnt - 1
+		set CompActorRef to ListGetNthForm J3XRidecompanionList CompCnt
+		set tempx to newx + ( trx * (cos ModAngle) ) +  ( try * ModSin ) 		 
+		set tempy to newy - ( trx * (sin ModAngle) ) + ( try * ModCos )
+
+		CompActorRef.SetPos x tempx
+		CompActorRef.SetPos y tempy
+		;CompActorRef.SetPos z newz
+
+		set trx to -1 * trx   ; flip x postion every time
+		Goto 1
+	endif
+	
+	;label 1
+
+endif
+;END OF PLAYER-RELATED SECTION
+;======================================================
+
+
+;========================================================================================================
+; COMMON PART, EXECUTE FOR BOTH PLAYER AND NPCs
+; MOD: TURRET CONTROLL
+	if J3XMotorcycleQuest.turrettype
+	;force game engine to update data, preventing crash...	
+		turret1.moveto actor
+		turret2.moveto actor
+	
+;z position
+		if ModAnimationType==1
+			set AnimationTileAngle to 0
+		elseif ModAnimationType==2		;left
+			set AnimationTileAngle to -25
+		elseif ModAnimationType==3		;right
+			set AnimationTileAngle to 25	
+		endif
+
+		set trx to 25
+		set try to 0
+		set trz to 30
+
+		set tempx to newx + ModCos *(  (cos AnimationTileAngle) * (-trx)  + (sin AnimationTileAngle) * trz )
+		turret1.SetPos x tempx
+		set tempx to newx + ModCos *( (cos AnimationTileAngle) * ( trx) + (sin AnimationTileAngle) * trz   )
+		turret2.SetPos x tempx
+
+		set tempy to newy + ModSin *(  (cos AnimationTileAngle)*( trx) - (sin AnimationTileAngle) * trz )
+		turret1.SetPos y tempy
+		set tempy to newy + ModSin *( (cos AnimationTileAngle)*( - trx)  - (sin AnimationTileAngle) * trz )
+		turret2.SetPos y tempy
+
+		set tempz to newz  + (sin AnimationTileAngle) * trx +  (cos AnimationTileAngle) * trz
+		turret1.SetPos z tempz
+		set tempz to newz  - (sin AnimationTileAngle) * trx +  (cos AnimationTileAngle) *  trz
+		turret2.SetPos z tempz
+
+		;SWORD experimental
+		;set tempz to tempz+50
+		;RSwordRef.SetPos z tempz
+		;set tempx to ModAngle + 90
+		;RSwordRef.SetAngle z tempx
+		;RSwordRef.SetAngle x 0
+		;RSwordRef.SetAngle y 0
+		;set tempx to newx + (cos ModAngle) * 50
+		;RSwordRef.SetPos x tempx
+		;set tempx to newy - (sin ModAngle) * 50
+		;RSwordRef.SetPos y tempx
+		;RSwordRef.fireweapon WeapNVLegateSword2
+
+;===== horizontal angles
+		set tempx to (ModAngle) - turretangle
+		turret1.SetAngle z tempx
+		set tempx to (ModAngle) + turretangle
+		turret2.SetAngle z tempx
+
+;=========================================================================
+;elevation angle of turrets
+		set tempz to (ModAngle - turretangle)
+		set tempx to (player.GetAngle x) * ( cos  tempz )  
+		turret1.SetAngle x tempx
+		set tempx to (player.GetAngle x) * -1 *( sin tempz ) 
+		turret1.SetAngle y tempx
+
+		;elevation angle of turret 2		
+		set tempz to (ModAngle + turretangle)
+		set tempx to (player.GetAngle x) * ( cos  tempz) 
+		turret2.SetAngle x tempx
+		set tempx to (player.GetAngle x) * -1 *( sin tempz )
+		turret2.SetAngle y tempx
+;==========================================================================
+		if iskeypressed 257
+			if TurretState == 1
+				if turretangle >= 90 
+					set TurretState to 2
+				else
+					set turretangle to turretangle +3
+				endif
+			else
+				if turretangle <= 0 
+					set TurretState to 1
+				else
+					set turretangle to turretangle - 3
+				endif
+			endif
+		endif
+
+		if iskeypressed 256
+			if J3XMotorcycleQuest.turrettype == 1
+				turret1.fireweapon WeapMinigun
+				turret2.fireweapon WeapMinigun
+				set J3XMotorcycleQuest.isfiring to 1
+				if firesound <= 0
+					playsound J3XMotorcycleSoundMinigun
+					set firesound to 0.644
+				endif
+			elseif J3XMotorcycleQuest.turrettype == 2
+				turret1.fireweapon WeapGatlingLaser
+				turret2.fireweapon WeapGatlingLaser
+				set J3XMotorcycleQuest.isfiring to 1
+				if firesound <= 0
+					playsound J3XMotorcycleSoundlaser
+					set firesound to 0.692
+				endif
+			elseif J3XMotorcycleQuest.turrettype == 3 && firesound <= 0
+				turret1.placeatme J3XMotorcycleFlamerInvisible
+				turret2.placeatme J3XMotorcycleFlamerInvisible
+				set J3XMotorcycleQuest.isfiring to 2
+				;playsound J3XMotorcycleSoundlaser
+				playsound J3XMotorcycleSoundFlamer
+				set firesound to 0.05
+
+			; 2 different kinds of fire, fire the misisles left right left right .... not at the same time
+			; 1.5 to 10
+			; then 0.5 to 0
+			elseif J3XMotorcycleQuest.turrettype == 4 && firesound <= 10 && firesound > 5
+				turret1.fireweapon WeapMissileLauncher
+				; turret2.placeatme J3XMotorcycleFlamerInvisible
+				set J3XMotorcycleQuest.isfiring to 1
+			;playsound J3XMotorcycleSoundlaser
+			playsound J3XMotorcycleSoundMissile
+			set firesound to 0.7
+			elseif J3XMotorcycleQuest.turrettype == 4 && firesound <= 0 && firesound < 5
+				; turret1.placeatme J3XMotorcycleFlamerInvisible
+				turret2.fireweapon WeapMissileLauncher
+				set J3XMotorcycleQuest.isfiring to 1
+				;playsound J3XMotorcycleSoundlaser
+				playsound J3XMotorcycleSoundMissile
+				set firesound to 10.7
+			endif
+		endif
+	endif
+
+;============================================================
+;THE LIGHT RELATED
+	;light switching
+	if J3XMotorcycleQuest.haslight1
+		light1.moveto actor ;move light to actor (prevent from crash..)
+		light2.moveto actor
+		if ( iscontrolpressed zGJ3XMotorcycleKeyToggleLight ) && ( KeyPressCDTime<=0 )	;'Z' (27)
+			set KeyPressCDTime to KeyCDTimeValue
+			if LightState == 0	;turn on
+				light1.enable
+				light2.enable
+				set J3XMotorcycleQuest.haslight1 to 2
+				set Lightstate to 1		
+			elseif LightState == 1;turn off
+				light1.disable
+				light2.disable
+				set J3XMotorcycleQuest.haslight1 to 1
+				set lightstate to 0		
+			endif
+		endif
+	endif
+	
+	
+	if LightState == 1	;move light
+		set tempz to newz + 70
+		light1.SetPos z tempz
+		light2.SetPos z tempz
+
+		;;set tempx to ModAngle
+		set tempz to newy + ModCos * 300
+		light1.SetPos y tempz
+	
+		set tempz to newy + ModCos * 110
+		light2.SetPos y tempz
+
+		set tempz to newx + ModSin * 300
+		light1.SetPos x tempz
+	
+		set tempz to newx + ModSin * 110
+		light2.SetPos x tempz
+	
+		light1.SetAngle z  ModAngle
+		light2.SetAngle z  ModAngle						
+	endif
+
+;===========================================================
+;Smoke Dummy
+	if zGJ3XMotorcycleHasSmoke == 1 
+		SmokeDummyRef.moveto actor ;(prevent from crash..)
+		if bSmoke < 3 && ModSpeed > 0.2 * zGJ3XMotorcycleMaxSpeed
+			SmokeDummyRef.PMS Smoke02pulse
+			set bSmoke to bSmoke+1
+		elseif ModSpeed <= 0.2 * zGJ3XMotorcycleMaxSpeed
+			SmokeDummyRef.SMS Smoke02pulse
+			set bSmoke to 0
+		endif
+	endif
+
+;===========================================================
+;variable setting
+	set oldspeed to newspeed
+
+;	set old2x to oldx
+;	set old2y to oldy
+
+	set oldx to player.getpos x
+	set oldy to player.getpos y
+end

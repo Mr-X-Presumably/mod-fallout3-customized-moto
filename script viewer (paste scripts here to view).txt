@@ -1,0 +1,702 @@
+Scn UmNewDriveQuestScript
+
+Short Driving
+Short Dismount
+
+Float PScale
+
+Float YPos
+Float XPos
+Float ZPos
+
+Float NewZPos
+
+
+Float ZAngP
+Float NewAng
+Float NewAngP
+
+Float ZAng
+Float XOffsetAng
+
+Float HeightOffset
+Float XOffset
+Float YOffset
+
+Float Throttle
+
+Float StickX
+
+Float LTrig
+Float RTrig
+
+Ref CurrentCarRef
+
+Ref DriverRef
+
+Float ExitYPos
+Float ExitXPos
+Float ExitZPos
+
+;----------------
+Short Fuel
+Float Timer
+
+Short TankSize
+Short FuelUse
+Short CanAddFuel
+
+Short FueltoAdd
+
+Short CruiseControl
+
+Float LightYPos
+Float LightXPos
+Float LightZPos
+
+Short LightsOn
+Short LightButton
+Float LightButtonTimer
+
+Short MaxSpeed
+
+Short Electric
+
+Short CanSleep
+
+;vvvvvvvvvvvvvvv
+
+Short Tank
+
+Float WepAXOffset
+Float WepAYOffset
+Float WepAZOffset
+
+Float WepBXOffset
+Float WepBYOffset
+Float WepBZOffset
+
+Short WepA
+;Short SafetyA
+Float WepAYPos
+Float WepAXPos
+Float WepAZPos
+
+Short WepB
+;Short SafetyB
+Float WepBYPos
+Float WepBXPos
+Float WepBZPos
+
+Float PXAng
+
+Float WepAXAng
+Float WepAYAng
+Float WepAZAng
+
+Float WepBXAng
+Float WepBYAng
+Float WepBZAng
+
+Float WepAFireRate
+Float WepBFireRate
+
+Float WepATimer
+Float WepBTimer
+
+Short WepAHold
+Short WepBHold
+
+Short RadioOnBoard
+
+Short AmmoA
+Short AmmoB
+Short MaxAmmoA
+Short MaxAmmoB
+Short AmmoToAdd
+Short PlayerAmmoA
+Short PlayerAmmoB
+
+;^^^^^^^^^^^^^^^^^^^^^^^
+
+;*****************************************************
+
+Begin GameMode
+
+	If Dismount == 1
+		Set Driving to 0
+		Set ExitXPos to CurrentCarRef.GetPos X
+		Set ExitYPos to CurrentCarRef.GetPos Y
+		Set ExitZPos to CurrentCarRef.GetPos Z
+		Set Dismount to 2
+
+	elseif Dismount == 2
+		set ExitXPos to ExitXPos + ( -105 * (sin XOffsetAng))
+		set ExitYPos to ExitYPos + ( -105 * (cos XOffsetAng))
+		set ExitZPos to ExitZPos + 25
+		If PScale != 0
+			Player.Setscale PScale
+		endif
+		Set Throttle to 0
+		UmHeadlightsObjRef.Disable
+		Set LightButton to 0
+		Set Lightson to 0
+		CurrentCarRef.Playgroup Idle 0
+		Set HeightOffset to 0
+		Set YOffset to 0
+		Set XOffset to 0
+		Set Electric to 0
+		Set CanSleep to 0
+		Set UmPassQuest.Seats to 0
+
+;vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
+		Set Tank to 0
+		Set WepA to 0
+		Set WepB to 0
+
+		Set WepAHold to 0
+		Set WepBHold to 0
+
+		Set WepATimer to 0
+		Set WepBTimer to 0
+
+;^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+		CurrentCarRef.SetGhost 1
+		
+		Set Dismount to 3
+
+	elseif Dismount == 3
+		Player.SetPos X ExitXPos
+		Player.SetPos Y ExitYPos
+		Player.SetPos Z ExitZPos
+		Set PScale to 0
+		EnablePlayerControls
+		Set Dismount to 0
+	endif
+
+;-----------------------------------------------------------------------------------
+
+	If Driving == 1
+		Set UmCarRadioQuest.RadioCarRef to CurrentCarRef.GetSelf
+		CurrentCarRef.SetGhost 0
+		Set Driving to 2
+
+	elseif Driving == 2
+
+		Set XPos to CurrentCarRef.GetPos X
+		Set YPos to CurrentCarRef.GetPos Y
+		Set ZPos to CurrentCarRef.GetPos Z
+		Set NewZPos to CurrentCarRef.GetPos Z + HeightOffset
+
+		UmHeadlightsObjRef.moveto CurrentCarRef
+
+;vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
+
+		if WepA > 0
+			UmDummyWeapMainRef.moveto CurrentCarRef
+			Set WepAZPos to CurrentCarRef.GetPos Z + WepAZOffset
+			Set AmmoA to CurrentCarRef.GetitemCount UmAmmoUnitA
+		else
+			UmDummyWeapMainRef.moveto CurrentCarRef
+			Set WepAZPos to CurrentCarRef.GetPos Z + 150
+			
+		endif
+
+		if WepB > 0
+			UmDummyWeapSecRef.moveto CurrentCarRef
+			Set WepBZPos to CurrentCarRef.GetPos Z + WepBZOffset
+			Set AmmoB to CurrentCarRef.GetitemCount UmAmmoUnitB
+		endif
+
+		Set UmCarDisplayAmmoA to AmmoA
+		Set UmCarDisplayAmmoB to AmmoB
+;^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+		Set UmCarDisplayFuel to ( Fuel / 100 )
+		Set UmCarDisplayMaxFuel to ( TankSize / 100 )
+		Set UmCarDisplayHealth to ( CurrentCarRef.GetHealthPercentage * 100 )
+
+		If Fuel <= 0
+			Set CruiseControl to 0
+		endif
+
+		If CurrentCarRef.GetDead == 1
+			Set Dismount to 1
+		endif
+
+;---------------------------------------------------------------------------------------------
+
+		Set ZAng to CurrentCarRef.GetAngle Z
+		Set ZAngP to Player.GetAngle Z
+
+;		Set StickX to GetLeftStickX * 1.5
+
+;		Set LTrig to GetLeftTrigger * 2
+;		Set RTrig to GetRightTrigger
+
+;-----------------------------------------------------------------------------
+		If Throttle > 2 && Throttle < 40
+				CurrentCarRef.Playgroup Forward 0
+
+		Elseif Throttle > 39 && Throttle < 80
+				CurrentCarRef.Playgroup FastForward 0
+
+		Elseif Throttle > 79
+				CurrentCarRef.Playgroup Left 0
+
+		Elseif Throttle < -2
+				CurrentCarRef.Playgroup Backward 0
+
+		Else
+				CurrentCarRef.Playgroup Idle 0
+
+		Endif
+
+-------------------------------------------------------------------
+;		if GetRightTrigger > 0 && Fuel > 0
+;			Set CruiseControl to 0
+;			If Throttle < MaxSpeed
+;				Set Throttle to Throttle + RTrig
+;			Endif
+;
+;		elseif GetLeftTrigger > 0 && Fuel > 0
+;			Set CruiseControl to 0
+;			If Throttle > - 20
+;				Set Throttle to Throttle - LTrig
+;			Endif
+;
+;		Else
+;			If Throttle > 0 && CruiseControl == 0
+;				Set Throttle to Throttle - 0.4
+;			Elseif Throttle < 0 && CruiseControl == 0
+;				Set Throttle to Throttle + 0.4
+;			Endif
+;
+;		endif
+
+;==============================
+
+;		if IsButtonPressed 00032 == 1
+;			if UmCarRadioQuest.ChangeRadio == 0
+;				Set UmCarRadioQuest.ChangeRadio to 1
+;			endif
+;		Endif
+;
+;		if IsButtonPressed 32768 == 1
+;			Set Dismount to 1
+;		endif
+;
+;		if IsButtonPressed 00064 == 1
+;			player.playsound UmCarHorn
+;			CurrentCarRef.Cios UmHornActorEffect
+;		endif
+;
+;		if IsButtonPressed 16384 == 1 && CruiseControl == 0
+;			Set CruiseControl to 1
+;		endif
+;
+;		if IsButtonPressed 00128 == 1
+;			If LightButton == 0
+;				if LightsOn == 0
+;					UmHeadlightsObjRef.enable
+;					Set LightsOn to 1
+;					Set LightButtonTimer to 1
+;					Set LightButton to 1
+;				elseif LightsOn == 1
+;					UmHeadlightsObjRef.Disable
+;					Set LightsOn to 0
+;					Set LightButtonTimer to 1
+;					Set LightButton to 1
+;				endif
+;			endif
+;		Endif
+
+;==============================
+
+;		if GetLeftStickX < -0.1
+;			if Tank == 0
+;				if Throttle > 2
+;					Set NewAng to ( ZAng + StickX )
+;					Set NewAngP to ( ZAngP + StickX )
+;					CurrentCarRef.setAngle Z NewAng
+;					Player.setAngle Z NewAngP
+;				elseif Throttle < -7
+;					Set NewAng to ( ZAng - StickX )
+;					Set NewAngP to ( ZAngP - StickX )
+;					CurrentCarRef.setAngle Z NewAng
+;					Player.setAngle Z NewAngP
+;				endif
+;			else
+;				if Fuel > 0
+;					Set NewAng to ( ZAng + StickX )
+;					Set NewAngP to ( ZAngP + StickX )
+;					CurrentCarRef.setAngle Z NewAng
+;					Player.setAngle Z NewAngP
+;				endif
+;			endif
+;
+;		elseif GetLeftStickX > 0.1
+;			if Tank == 0
+;				if Throttle > 2
+;					Set NewAng to ( ZAng + StickX )
+;					Set NewAngP to ( ZAngP + StickX )
+;					CurrentCarRef.setAngle Z NewAng
+;					Player.setAngle Z NewAngP
+;				elseif Throttle < -7
+;					Set NewAng to ( ZAng - StickX )
+;					Set NewAngP to ( ZAngP - StickX )
+;					CurrentCarRef.setAngle Z NewAng
+;					Player.setAngle Z NewAngP
+;				endif
+;			else
+;				if Fuel > 0
+;					Set NewAng to ( ZAng + StickX )
+;					Set NewAngP to ( ZAngP + StickX )
+;					CurrentCarRef.setAngle Z NewAng
+;					Player.setAngle Z NewAngP
+;				endif
+;			endif
+;
+;		endif
+;
+;
+;-----------------------------KnM---------------------------
+		if IsKeyPressed 17 == 1 && Fuel > 0
+			Set CruiseControl to 0
+			If Throttle < MaxSpeed
+				Set Throttle to Throttle + 1
+			Endif
+
+		elseif IsKeyPressed 31 == 1 && Fuel > 0
+			Set CruiseControl to 0
+			If Throttle > - 20
+				Set Throttle to Throttle - 2
+			Endif
+
+		Else
+			If Throttle > 0 && CruiseControl == 0
+				Set Throttle to Throttle - 0.4
+			Elseif Throttle < 0 && CruiseControl == 0
+				Set Throttle to Throttle + 0.4
+			Endif
+
+		endif
+
+
+		if IsKeyPressed 20 == 1 ;T
+			if UmCarRadioQuest.ChangeRadio == 0
+				Set UmCarRadioQuest.ChangeRadio to 1
+			endif
+
+		Endif
+
+		if IsKeyPressed 57 == 1 ;Space
+			Set Dismount to 1
+		endif
+
+		if IsKeyPressed 19 == 1 ;R
+			player.playsound UmCarHorn
+			CurrentCarRef.Cios UmHornActorEffect
+		endif
+
+		if IsKeyPressed 42 == 1 && CruiseControl == 0 ;L-Shift
+			Set CruiseControl to 1
+		endif
+
+
+		if IsKeyPressed 16 == 1
+			If LightButton == 0
+				if LightsOn == 0
+					UmHeadlightsObjRef.enable
+					Set LightsOn to 1
+					Set LightButtonTimer to 1
+					Set LightButton to 1
+				elseif LightsOn == 1
+					UmHeadlightsObjRef.Disable
+					Set LightsOn to 0
+					Set LightButtonTimer to 1
+					Set LightButton to 1
+				endif
+			endif
+		Endif
+
+
+		if IsKeyPressed 32 == 1;D
+			if Tank == 0
+				if Throttle > 2
+					Set NewAng to ( ZAng + 1 )
+					Set NewAngP to ( ZAngP + 1 )
+					CurrentCarRef.setAngle Z NewAng
+					Player.setAngle Z NewAngP
+				elseif Throttle < -7
+					Set NewAng to ( ZAng - 1 )
+					Set NewAngP to ( ZAngP - 1 )
+					CurrentCarRef.setAngle Z NewAng
+					Player.setAngle Z NewAngP
+				endif
+			else
+				if Fuel > 0
+					Set NewAng to ( ZAng + 1 )
+					Set NewAngP to ( ZAngP + 1 )
+					CurrentCarRef.setAngle Z NewAng
+					Player.setAngle Z NewAngP
+				endif
+			endif
+
+		elseif IsKeyPressed 30 == 1 ;A
+			If Tank == 0
+				if Throttle > 2
+					Set NewAng to ( ZAng - 1 )
+					Set NewAngP to ( ZAngP - 1 )
+					CurrentCarRef.setAngle Z NewAng
+					Player.setAngle Z NewAngP
+				elseif Throttle < -7
+					Set NewAng to ( ZAng + 1 )
+					Set NewAngP to ( ZAngP + 1 )
+					CurrentCarRef.setAngle Z NewAng
+					Player.setAngle Z NewAngP
+				endif
+			else
+				if Fuel > 0
+					Set NewAng to ( ZAng - 1 )
+					Set NewAngP to ( ZAngP - 1 )
+					CurrentCarRef.setAngle Z NewAng
+					Player.setAngle Z NewAngP
+				endif
+			endif
+
+
+		endif
+
+
+;==============================
+		If LightsOn != 2
+			set LightXPos to XPos + ( 550 * (sin ZAng))
+			set LightYPos to YPos + ( 550 * (cos ZAng))
+			set LightZPos to ZPos + 105
+		endif
+
+
+			Set XOffSetAng to ZAng + 90
+
+;vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
+		Set PXAng to Player.GetAngle X
+		Set WepAZAng to ZAng
+		Set WepBZAng to ZAng
+
+		If WepA > 0
+			If WepAYOffset != 0
+				set WepAXPos to XPos + ( WepAYOffset * (sin ZAng))
+				set WepAYPos to YPos + ( WepAYOffset * (cos ZAng))
+			Endif
+
+			If WepAXOffset != 0
+				set WepAXPos to WepAXPos + ( WepAXOffset * (sin XOffsetAng))
+				set WepAYPos to WepAYPos + ( WepAXOffset * (cos XOffsetAng))
+			Endif
+		else
+			set WepAXPos to XPos + ( 250 * (sin ZAng))
+			set WepAYPos to YPos + ( 250 * (cos ZAng))
+			set WepAZPos to ZPos + 150
+		endif
+
+		If WepB > 0
+			If WepBYOffset != 0
+				set WepBXPos to XPos + ( WepBYOffset * (sin ZAng))
+				set WepBYPos to YPos + ( WepBYOffset * (cos ZAng))
+			Endif
+
+			If WepBXOffset != 0
+				set WepBXPos to WepBXPos + ( WepBXOffset * (sin XOffsetAng))
+				set WepBYPos to WepBYPos + ( WepBXOffset * (cos XOffsetAng))
+			Endif
+		endif
+
+
+		Set WepAXAng to ( PXAng ) * ( cos ZAng )
+		Set WepAYAng to ( PXAng ) * -1 * ( Sin ZAng )
+
+		Set WepBXAng to ( PXAng ) * ( cos ZAng )
+		Set WepBYAng to ( PXAng ) * -1 * ( Sin ZAng )
+
+;^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+;-----------------------------------------------------	
+		If YOffset != 0
+			set XPos to XPos + ( YOffset * (sin ZAng))
+			set YPos to YPos + ( YOffset * (cos ZAng))
+		Endif
+
+		If XOffset != 0
+			set XPos to XPos + ( XOffset * (sin XOffsetAng))
+			set YPos to YPos + ( XOffset * (cos XOffsetAng))
+		Endif
+
+		Player.SetPos X XPos
+		Player.SetPos Y YPos
+		Player.SetPos Z NewZPos
+
+		UmHeadlightsObjRef.SetPos X LightXPos
+		UmHeadlightsObjRef.SetPos Y LightYPos
+		UmHeadlightsObjRef.SetPos Z LightZPos
+
+;vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
+
+		if WepA >= 0
+			UmDummyWeapMainRef.SetPos X WepAXPos
+			UmDummyWeapMainRef.SetPos Y WepAYPos
+			UmDummyWeapMainRef.SetPos Z WepAZPos
+			UmDummyWeapMainRef.SetAngle X WepAXAng
+			UmDummyWeapMainRef.SetAngle Y WepAYAng
+			UmDummyWeapMainRef.SetAngle Z WepAZAng
+		endif
+		if WepB > 0
+			UmDummyWeapSecRef.SetPos X WepBXPos
+			UmDummyWeapSecRef.SetPos Y WepBYPos
+			UmDummyWeapSecRef.SetPos Z WepBZPos
+			UmDummyWeapSecRef.SetAngle X WepBXAng
+			UmDummyWeapSecRef.SetAngle Y WepBYAng
+			UmDummyWeapSecRef.SetAngle Z WepBZAng
+		endif
+
+;-----------------------------Weapon Controls----------------------------------------
+;		if IsButtonPressed 00512 == 1 && WepA != 0 && WepAHold == 0 && AmmoA > 0
+;			If WepA == 1
+;				UmDummyWeapMainRef.Fireweapon UmDriveTankMainGun ;Tank cannon
+;				CurrentCarRef.Removeitem UmAmmoUnitA 1
+;				Set WepATimer to WepAFireRate
+;				Set WepAHold to 1
+;			elseif WepA == 2
+;				UmDummyWeapMainRef.Fireweapon UmDriveBradleyAutoCannon ;25mm Autocannon
+;				CurrentCarRef.Removeitem UmAmmoUnitA 1
+;				Set WepATimer to WepAFireRate
+;				Set WepAHold to 1
+;			elseif WepA == 3
+;				UmDummyWeapMainRef.Fireweapon UmDriveBtrAutoCannon ;30mm Autocannon
+;				CurrentCarRef.Removeitem UmAmmoUnitA 1
+;				Set WepATimer to WepAFireRate
+;				Set WepAHold to 1
+;			elseif WepA == 4
+;				UmDummyWeapMainRef.Fireweapon UmDriveTankLmgMain ;LMG
+;				CurrentCarRef.Removeitem UmAmmoUnitA 1
+;				Set WepATimer to WepAFireRate
+;				Set WepAHold to 1
+;			endif
+;		endif
+;
+;		if IsButtonPressed 00256 == 1 && WepB != 0 && WepBHold == 0 && AmmoB > 0
+;			If WepB == 1
+;				UmDummyWeapSecRef.Fireweapon UmDriveTankLmgSec ;LMG
+;				CurrentCarRef.Removeitem UmAmmoUnitB 1
+;				Set WepBTimer to WepBFireRate
+;				Set WepBHold to 1
+;			elseif WepB == 2
+;				UmDummyWeapSecRef.Fireweapon UmDriveTOW ;Tow Stacked
+;				CurrentCarRef.Removeitem UmAmmoUnitB 1
+;				Set WepBTimer to WepBFireRate
+;				Set WepBHold to 1
+;			elseif WepB == 3
+;				UmDummyWeapSecRef.Fireweapon UmDriveTOW ;TOW opposite sides
+;				CurrentCarRef.Removeitem UmAmmoUnitB 1
+;				Set WepBXOffset to ( WepBXOffset * -1 )
+;				Set WepBTimer to WepBFireRate
+;				Set WepBHold to 1
+;			endif
+;		endif
+;=================================KnM========================================
+		if IsKeyPressed 256 == 1 && WepA != 0 && WepAHold == 0 && AmmoA > 0
+			If WepA == 1
+				UmDummyWeapMainRef.Fireweapon UmDriveTankMainGun ;Tank cannon
+				CurrentCarRef.Removeitem UmAmmoUnitA 1
+				Set WepATimer to WepAFireRate
+				Set WepAHold to 1
+			elseif WepA == 2
+				UmDummyWeapMainRef.Fireweapon UmDriveBradleyAutoCannon ;25mm Autocannon
+				CurrentCarRef.Removeitem UmAmmoUnitA 1
+				Set WepATimer to WepAFireRate
+				Set WepAHold to 1
+			elseif WepA == 3
+				UmDummyWeapMainRef.Fireweapon UmDriveBtrAutoCannon ;30mm Autocannon
+				CurrentCarRef.Removeitem UmAmmoUnitA 1
+				Set WepATimer to WepAFireRate
+				Set WepAHold to 1
+			elseif WepA == 4
+				UmDummyWeapMainRef.Fireweapon UmDriveTankLmgMain ;LMG
+				CurrentCarRef.Removeitem UmAmmoUnitA 1
+				Set WepATimer to WepAFireRate
+				Set WepAHold to 1
+			endif
+		endif
+
+		if IsKeyPressed 257 == 1 && WepB != 0 && WepBHold == 0 && AmmoB > 0
+			If WepB == 1
+				UmDummyWeapSecRef.Fireweapon UmDriveTankLmgSec ;LMG
+				CurrentCarRef.Removeitem UmAmmoUnitB 1
+				Set WepBTimer to WepBFireRate
+				Set WepBHold to 1
+			elseif WepB == 2
+				UmDummyWeapSecRef.Fireweapon UmDriveTOW ;Tow Stacked
+				CurrentCarRef.Removeitem UmAmmoUnitB 1
+				Set WepBTimer to WepBFireRate
+				Set WepBHold to 1
+			elseif WepB == 3
+				UmDummyWeapSecRef.Fireweapon UmDriveTOW ;TOW opposite sides
+				CurrentCarRef.Removeitem UmAmmoUnitB 1
+				Set WepBXOffset to ( WepBXOffset * -1 )
+				Set WepBTimer to WepBFireRate
+				Set WepBHold to 1
+			endif
+		endif
+
+;^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+
+;----------------------Fuel--------------------------------------
+
+		Set Fuel to CurrentCarRef.GetItemCount UmFuelUnit
+		If Fuel >0
+			If Timer <= 0
+				CurrentCarRef.Removeitem UmFuelUnit FuelUse
+				Set Timer to 1
+			else
+				set Timer to Timer - GetSecondsPassed
+			endif
+		endif
+
+;-----------------------LightButtonTimer---------------------------
+
+		If LightButton == 1
+			If LightButtonTimer <= 0
+				Set LightButton to 0
+			else
+				set LightButtonTimer to LightButtonTimer - GetSecondsPassed
+			endif
+		endif
+
+;vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
+
+		If WepAHold == 1
+			If WepATimer <= 0
+				Set WepAHold to 0
+			else
+				set WepATimer to WepATimer - GetSecondsPassed
+			endif
+		endif
+
+		If WepBHold == 1
+			If WepBTimer <= 0
+				Set WepBHold to 0
+			else
+				set WepBTimer to WepBTimer - GetSecondsPassed
+			endif
+		endif
+
+
+
+	endif
+;^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+;-------------------------------------------------------------------
+
+End
