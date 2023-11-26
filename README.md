@@ -2,6 +2,9 @@
   <p align="center">Realistic Driveable Motorcycles</p>
   <p align="center">for Fallout 3</p>
 </h1>
+<p align="center">
+  <img width="1280" height="720" src="https://github.com/DJD777/mod-fallout3-customized-moto/assets/85384255/58b07542-f3f3-40ee-b236-ba9e608a459e">
+</p>
 
 <h2>What Does This Mod Do?</h2>
 This is a highly modified version of the Motorcycle Remake mod by alexkidd62, adding features, improvements, compatibility/features with the Helpless Falling mod, improved effects, and much more. 
@@ -10,6 +13,9 @@ This is a highly modified version of the Motorcycle Remake mod by alexkidd62, ad
 The mod is still a WIP.
 <br />
 <br />
+<p align="center">
+  <img width="1280" height="720" src="https://github.com/DJD777/mod-fallout3-customized-moto/assets/85384255/b7697893-6c8e-4781-b05d-1816e5006fcc">
+</p>
 
 <h2>List of Features</h2>
 <ul>
@@ -21,6 +27,11 @@ The mod is still a WIP.
   <br />
   <li>Realistic motorcycle attributes like fuel consumption, health, mass, weight capacity, maximum velocity, and damage potential, with things like total mass realistically affecting other attributes</li>
   <br />
+  <li>Bikes can be damaged, repaired, and eventually destroyed if left unrepaired. Damage comes in stages, with damaged components applying their own relevant debuffs to the bike until repaired</li>
+  <br />
+<p align="center">
+  <img width="1280" height="720" src="https://github.com/DJD777/mod-fallout3-customized-moto/assets/85384255/78f96c5c-7b3b-45da-b371-0476e7884231">
+</p>
   <li>Carefully thought out, realistic, and balanced build, repair, and modification item requirements that turn normally useless junk into useful crafting ingredients</li>
   <br />
   <li>Plausible, hand-chosen locations to find repairable motorcycle chassis, some already repaired and modified in select locations, and some unique models for variety. Collect 'em all!</li>
@@ -44,3 +55,8 @@ Ajax120 for the improved and varied new motorcycle models.
 <br />
 <br />
 Hunk92 for improved riding animations.
+<br />
+<br />
+<p align="center">
+  <img width="1280" height="720" src="https://github.com/DJD777/mod-fallout3-customized-moto/assets/85384255/eaa6805c-b0d7-4b6b-a8cf-452241f9f47b">
+</p>
