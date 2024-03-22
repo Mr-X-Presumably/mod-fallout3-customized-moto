@@ -19,7 +19,7 @@ The mod is still a WIP.
 
 <h2>List of Features</h2>
 <ul>
-  <li>Performance improvements, code improvements, more code reduncancies, and improved script logic</li>
+  <li>Performance improvements, code improvements, more code redundancies, and improved script logic</li>
   <br />
   <li>Expanded features including (untested) multiple motorcycles ownership; realistic motorcycle modification, building, and repairing requirements to make motorcycles--and the act of riding them--more rewarding, immersive, useful for tougher gameplay mod lists, and less OP</li>
   <br />
